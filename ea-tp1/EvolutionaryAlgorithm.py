@@ -18,6 +18,7 @@ class EvolutionaryAlgorithm:
         self.generation_info = {}
         self.x_min = x_min
         self.x_max = x_max
+        self.best = [None for i in range(generations)]
 
     # def generate_chromosome(self, chromosome_length):
     #     raise NotImplementedError
