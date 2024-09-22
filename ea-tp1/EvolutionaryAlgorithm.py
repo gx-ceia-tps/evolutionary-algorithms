@@ -187,7 +187,7 @@ class BivariateTargetFun:
         x1, x2 = self.split_answer(chromosome)
         return self.target_fn(x1, x2)
 
-    def plot_function(self):
+    def plot_function(self, plot_callback=None):
         # Create a grid of x and y values
         x_vals = np.linspace(self.x1_min, self.x1_max, 100)
         y_vals = np.linspace(self.x2_min, self.x2_max, 100)
@@ -201,9 +201,12 @@ class BivariateTargetFun:
         ax = fig.add_subplot(111, projection='3d')
         ax.plot_surface(x, y, z, cmap='viridis')
 
+        if plot_callback is not None:
+            plot_callback(ax)
+
         # Add labels
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
-
+        # plt.legend()
         plt.show()
