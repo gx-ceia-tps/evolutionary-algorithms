@@ -1,6 +1,9 @@
 import random
 import numpy as np
 from numpy.ma.core import cumsum
+import math
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
 
 
 class EvolutionaryAlgorithm:
@@ -20,9 +23,6 @@ class EvolutionaryAlgorithm:
         self.x_max = x_max
         self.best = [None for i in range(generations)]
 
-    # def generate_chromosome(self, chromosome_length):
-    #     raise NotImplementedError
-
     def initialize_population(self):
         return [self.generate_chromosome(self.chromosome_length) for _ in range(self.population_length)]
 
@@ -31,9 +31,6 @@ class EvolutionaryAlgorithm:
 
     def get_progenitors(self):
         return [self.selection_algorithm() for _ in range(self.population_length)]
-
-    # def crossover(self, p1,p2):
-    #     raise NotImplementedError
 
     def get_descendants(self, progenitors):
         grouped_progenitors = zip(progenitors[0::2], progenitors[1::2])
@@ -48,7 +45,6 @@ class EvolutionaryAlgorithm:
         return [self.mutate(descendant) for descendant in descendants]
 
     def apply_elitism(self, mutations):
-        # esto asume q queremos fitnesse mas grande o menos grande, depende de si maximizamos o minimizamos...
         self.population.sort(key=self.fitness)
         mutations.sort(key=self.fitness, reverse=True)
         for i in range(len(mutations)):
@@ -144,31 +140,55 @@ class Tournament(EvolutionaryAlgorithm):
         return progenitors
 
 
-#
-# # model_args = {generations:10, chromosome_length:10,population_length:4, maximize:True, target_fn=lambda x:x**2, elitism=True,crossover_rate=0.92, x_min=-31,x_max=31, mutation_rate=0.1}
-#
-# num_gens = 10
-#
-# ea = Roulette(
-#     generations=num_gens,
-#     chromosome_length=10,
-#     population_length=4,
-#     maximize=False,
-#     target_fn=lambda x:x**2,
-#     elitism=True,
-#     crossover_rate=0.92,
-#     x_min=-31,
-#     x_max=31,
-#     epsilon=0.001,
-#     mutation_rate=0.1
-# )
-#
-# random.seed(42)
-# ea.execute()
-# # podria terminar antes, no necesariamente es el mejor
-# goat = ea.generation_info[num_gens-1]["best_individual"]
-#
-# print('Mejor solucion: ', ea.bin_to_dec(max(ea.population, key=lambda x: ea.fitness(x))))
-# print(ea.fitness(goat))
+class BivariateTargetFun:
+    def __init__(self, x1_min, x1_max, x2_min, x2_max, decimal_places):
+        self.x1_min = x1_min
+        self.x1_max = x1_max
+        self.x2_min = x2_min
+        self.x2_max = x2_max
+        # self.decimal_places = decimal_places
+        self.x1_bits = math.ceil(np.log2((x1_max - x1_min) * (10 ** decimal_places)))
+        self.x2_bits = math.ceil(np.log2((x2_max - x2_min) * (10 ** decimal_places)))
+        self.total_bits = self.x1_bits + self.x2_bits
 
-# print(ea.bin_to_dec(ea.generation_info[9]["best_individual"]))
+    def dec_to_bin(self, decimal, bits):
+        return format(int(decimal), f'0{bits}b')
+
+    def target_fn(self, x1, x2):
+        return 7.7 + 0.15 * x1 + 0.22 * x2 - 0.05 * (x1 ** 2) - 0.016 * (x2 ** 2) - 0.007 * x1 * x2
+
+    def bin_to_dec(self, chromosome, range_min, range_max, bits_needed):
+        decimal = int(chromosome, 2)
+        return range_min + decimal * (range_max - range_min) / ((2 ** bits_needed) - 1)
+
+    def split_answer(self, chromosome):
+        idx = self.x1_bits
+        x1 = self.bin_to_dec(chromosome[:idx], self.x1_min, self.x1_max, self.x1_bits)
+        x2 = self.bin_to_dec(chromosome[idx:], self.x2_min, self.x2_max, self.x2_bits)
+        return x1, x2
+
+    def target_fun(self, decimal):
+        chromosome = self.dec_to_bin(decimal, self.total_bits)
+        x1, x2 = self.split_answer(chromosome)
+        return self.target_fn(x1, x2)
+
+    def plot_function(self):
+        # Create a grid of x and y values
+        x_vals = np.linspace(self.x1_min, self.x1_max, 100)
+        y_vals = np.linspace(self.x2_min, self.x2_max, 100)
+        x, y = np.meshgrid(x_vals, y_vals)
+
+        # Compute the corresponding z values
+        z = self.target_fn(x, y)
+
+        # Plotting the 3D surface
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.plot_surface(x, y, z, cmap='viridis')
+
+        # Add labels
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+
+        plt.show()
