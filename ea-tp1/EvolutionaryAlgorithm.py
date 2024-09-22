@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 class EvolutionaryAlgorithm:
 
-    def __init__(self, generations, chromosome_length, population_length, target_fn, maximize, elitism, x_min, x_max,crossover_rate,mutation_rate, epsilon=1e-3):
+    def __init__(self, generations, chromosome_length, population_length, target_fn, maximize, elitism, x_min, x_max,crossover_rate,mutation_rate, epsilon=0.001):
         self.generations = generations
         self.chromosome_length = chromosome_length
         self.population_length = population_length
@@ -18,10 +18,9 @@ class EvolutionaryAlgorithm:
         self.elitism = elitism
         self.crossover_rate = crossover_rate
         self.mutation_rate = mutation_rate
-        self.generation_info = {}
+        self.generation_best = []
         self.x_min = x_min
         self.x_max = x_max
-        self.best = [None for i in range(generations)]
 
     def initialize_population(self):
         return [self.generate_chromosome(self.chromosome_length) for _ in range(self.population_length)]
@@ -38,6 +37,7 @@ class EvolutionaryAlgorithm:
         return sum(unflattened_descendants, [])
 
     def mutate(self, chromosome):
+        assert(type(chromosome) == str)
         mutated_chromosome = [int(not int(bit)) if random.uniform(0, 1) < self.mutation_rate else bit for bit in chromosome]
         return "".join(map(str, mutated_chromosome))
 
@@ -56,6 +56,11 @@ class EvolutionaryAlgorithm:
         x = self.x_min + decimal * (self.x_max - self.x_min) / ((2 ** self.chromosome_length) - 1)
         return x
 
+    def dec_to_bin(self, decimal):
+        number = (decimal-self.x_min) * (2**self.chromosome_length - 1)/(self.x_max - self.x_min)
+        int_number = round(number)
+        return format(int_number, f'0{self.chromosome_length}b')
+
     def fitness(self, chromosome):
         x = self.bin_to_dec(chromosome)
         if self.maximize:
@@ -72,12 +77,16 @@ class EvolutionaryAlgorithm:
             mutations = self.get_mutations(descendants)
             if self.elitism:
                 self.apply_elitism(mutations)
+            else:
+                self.population = mutations
 
             best_individual = max(self.population, key=self.fitness)
-            self.generation_info[generation] = {"best_individual": best_individual}
+            self.generation_best.append(best_individual)
+
+        return max(self.population, key=self.fitness)
 
     def get_best_individual(self):
-        best = self.generation_info[self.generations-1]['best_individual']
+        best = self.generation_best[self.generations-1]
         return best, self.bin_to_dec(best), self.fitness(best)
 
     def one_point_crossover(self, progenitor_1, progenitor_2):
@@ -99,6 +108,10 @@ class EvolutionaryAlgorithm:
 
 
 class Roulette(EvolutionaryAlgorithm):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.model_name = 'Roulette'
+
     def selection_algorithm(self):
         fitness_total = sum(self.fitness(chromosome) for chromosome in self.population)
         probabilities = [self.fitness(individual) / fitness_total for individual in self.population]
@@ -108,6 +121,10 @@ class Roulette(EvolutionaryAlgorithm):
         return self.population[i]
 
 class LinearRanking(EvolutionaryAlgorithm):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.model_name = 'Linear Ranking'
+
     def selection_algorithm(self):
         # se calcula la aptitud de cada individuo
         fitness_list = [self.fitness(individual) for individual in self.population]
@@ -130,14 +147,12 @@ class Tournament(EvolutionaryAlgorithm):
     def __init__(self, tournament_size, **kwargs):
         super().__init__(**kwargs)
         self.tournament_size = tournament_size
+        self.model_name = 'Tournament'
 
     def selection_algorithm(self):
-        progenitors = []
-        for _ in range(len(self.population)):
-            candidates = random.sample(self.population, self.tournament_size)
-            progenitor = max(candidates, key=self.fitness)
-            progenitors.append(progenitor)
-        return progenitors
+        candidates = random.sample(self.population, self.tournament_size)
+        progenitor = max(candidates, key=self.fitness)
+        return progenitor
 
 
 class BivariateTargetFun:
